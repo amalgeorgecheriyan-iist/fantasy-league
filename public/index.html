@@ -386,7 +386,7 @@
 <script>
     // --- TIMELOCK CONFIG ---
     // FIXED: Extended deadline to March 1, 2026 so you can test
-    const DEADLINE = new Date("2026-03-01T23:00:00");
+    const DEADLINE = new Date("2026-02-16T12:00:00");
 
     function isMarketOpen() {
         return new Date() < DEADLINE;
@@ -409,12 +409,12 @@
 
     // --- DATA ---
     const players = [
-        { name: "Amal", price: 300, pos: ["Forward"] }, { name: "Aromal", price: 300, pos: ["Midfielder"] },
-        { name: "Jerin", price: 300, pos: ["Defender"] }, { name: "Kiran", price: 300, pos: ["Forward"] },
-        { name: "Deepak", price: 300, pos: ["Goalkeeper"] }, { name: "Athil", price: 300, pos: ["Midfielder"] },
-        { name: "Jyothish", price: 300, pos: ["Defender"] }, { name: "Hari", price: 300, pos: ["Forward"] },
+        { name: "Amal", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Aromal", price: 300, pos: ["Midfielder"] },
+        { name: "Jerin", price: 300, pos: ["Defender", "Midfielder"] }, { name: "Kiran", price: 300, pos: ["Forward", "Defender", "Midfielder"] },
+        { name: "Deepak", price: 300, pos: ["Forward", "Defender", "Midfielder"] }, { name: "Athil", price: 300, pos: ["Defender", "Midfielder"] },
+        { name: "Jyothish", price: 300, pos: ["Defender", "Midfielder"] }, { name: "Hari", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
         { name: "Aryan Ahalawat", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
-        { name: "Francis Babu", price: 300, pos: ["Defender", "Midfielder"] },
+        { name: "Francis Babu", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
         { name: "Kushal Aradhya H V", price: 300, pos: ["Midfielder", "Forward"] },
         { name: "Mecwin Levy TS", price: 300, pos: ["Defender", "Midfielder"] },
         { name: "Nishkalan", price: 300, pos: ["Goalkeeper", "Defender", "Midfielder", "Forward"] },
