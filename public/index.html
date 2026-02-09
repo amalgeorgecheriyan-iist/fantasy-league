@@ -384,30 +384,16 @@
 </div>
 
 <script>
-    // --- TIMELOCK CONFIG ---
-    // Extended deadline to March 1, 2026 for testing
+    // --- CONFIG ---
+    // Update deadline as needed
     const DEADLINE = new Date("2026-03-01T23:00:00");
-
-    function isMarketOpen() {
-        return new Date() < DEADLINE;
-    }
-
-    // --- ADMIN CREDENTIALS ---
     const ADMIN_USER = "ADMIN";
     const ADMIN_PASS = "admin123";
 
-    // --- SCORING CONSTANTS ---
-    const POINTS = {
-        GOAL: 10,
-        ASSIST: 7,
-        STARTING: 2,
-        SAVE: 3,
-        MOM: 20,
-        YELLOW: -2,
-        RED: -5
-    };
+    function isMarketOpen() { return new Date() < DEADLINE; }
 
-    // --- DATA ---
+    // --- DATA & STATE ---
+    // Player definitions (static names/prices/pos)
     const players = [
         { name: "Amal", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Aromal", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
         { name: "Jerin", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Kiran", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
@@ -467,70 +453,81 @@
         { name: "Vaibhav Rikhari", price: 50, pos: ["Goalkeeper", "Defender", "Midfielder"] }
     ];
 
-    // --- INIT STATS ---
-    let playerStats = JSON.parse(localStorage.getItem('fPlayerStats')) || {};
-    players.forEach(p => {
-        if (!playerStats[p.name]) {
-            playerStats[p.name] = { goals: 0, assists: 0, saves: 0, mom: 0, yellow: 0, red: 0, starting: 0 };
-        }
-    });
-
-    // --- GLOBAL VARS ---
+    let playerStats = {}; 
     let currentUser = null; 
     let currentFullName = null; 
     let isAdmin = false; 
     
-    let userCreds = JSON.parse(localStorage.getItem('fUserCreds')) || {};
-    let userDetails = JSON.parse(localStorage.getItem('fUserDetails')) || {}; 
-
     // Squad State
     let mySquad = { GK: null, DEF: [], FWD: [], Bench: [] };
     let budget = 1000;
     let captainName = null;
-    let leaderboard = JSON.parse(localStorage.getItem('fLeader')) || [];
+    let leaderboardData = []; // Holds full server data for leaderboard
+
+    // --- INIT ---
+    // On load, fetch global player stats from server
+    fetchStats().then(() => {
+        checkLoginStatus();
+    });
+
+    async function fetchStats() {
+        try {
+            const res = await fetch('/player_stats');
+            const data = await res.json();
+            
+            // Merge server stats with local player list to ensure structure
+            playerStats = data;
+            
+            // Initialize missing stats if new players added or DB empty
+            players.forEach(p => {
+                if (!playerStats[p.name]) {
+                    playerStats[p.name] = { goals: 0, assists: 0, saves: 0, mom: 0, yellow: 0, red: 0, starting: 0 };
+                }
+            });
+            renderStats(); // Update stats table
+        } catch (e) { console.error("Error fetching stats", e); }
+    }
 
     // --- AUTH LOGIC ---
     function checkLoginStatus() {
         const storedUser = localStorage.getItem('fCurrentUser');
         const storedAdmin = localStorage.getItem('fIsAdmin');
+        const storedName = localStorage.getItem('fCurrentName');
 
         if (storedUser) {
             currentUser = storedUser;
+            currentFullName = storedName || storedUser;
             isAdmin = (storedAdmin === 'true');
             
-            if(isAdmin) {
-                currentFullName = "Administrator";
+            if (isAdmin) {
+                renderAdminPanel();
+                showLoggedInUI();
             } else {
-                currentFullName = userDetails[currentUser] || currentUser;
+                // Fetch user's squad from server
+                fetchMySquad().then(() => {
+                    showLoggedInUI();
+                });
             }
-            
-            initUserData();
-            showLoggedInUI();
         } else {
             showLoginUI();
         }
     }
 
-    function initUserData() {
-        if(isAdmin) {
-            renderAdminPanel();
-            return;
-        }
-        mySquad = JSON.parse(localStorage.getItem(`fSquad_${currentUser}`)) || { GK: null, DEF: [], FWD: [], Bench: [] };
-        captainName = localStorage.getItem(`fCaptain_${currentUser}`) || null;
-        recalculateBudget();
-        updateUI();
-    }
-
-    function recalculateBudget() {
+    async function fetchMySquad() {
         if(isAdmin) return;
-        let used = 0;
-        if(mySquad.GK) used += mySquad.GK.price;
-        mySquad.DEF.forEach(p => used += p.price);
-        mySquad.FWD.forEach(p => used += p.price);
-        mySquad.Bench.forEach(p => used += p.price);
-        budget = 1000 - used;
-        localStorage.setItem(`fBudget_${currentUser}`, budget.toString());
+        try {
+            const res = await fetch(`/get_squad?sc=${currentUser}`);
+            const data = await res.json();
+            if(data.status === 'ok') {
+                mySquad = data.squad;
+                captainName = data.captain;
+            } else {
+                // New user, reset squad
+                mySquad = { GK: null, DEF: [], FWD: [], Bench: [] };
+                captainName = null;
+            }
+            recalculateBudget();
+        } catch(e) { console.error("Error fetching squad", e); }
     }
 
     function handleLogin() {
@@ -545,28 +542,29 @@
             isAdmin = true;
             localStorage.setItem('fCurrentUser', currentUser);
             localStorage.setItem('fIsAdmin', 'true');
-            initUserData();
+            fetchStats();
+            renderAdminPanel();
             showLoggedInUI();
-            err.style.display = 'none';
             return;
         }
 
-        // SERVER USER LOGIN
-        fetch("/login",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({sc:u,password:p})
+        // SERVER LOGIN
+        fetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sc: u, password: p })
         })
-        .then(r=>r.json())
-        .then(data=>{
-            if(data.status==="ok"){
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === "ok") {
                 currentUser = u;
                 currentFullName = data.name;
                 isAdmin = false;
                 localStorage.setItem('fCurrentUser', u);
+                localStorage.setItem('fCurrentName', data.name);
                 localStorage.removeItem('fIsAdmin');
-                initUserData();
-                showLoggedInUI();
+                
+                fetchMySquad().then(() => showLoggedInUI());
                 err.style.display = 'none';
             } else {
                 err.innerText = "Invalid SC Code or Password";
@@ -580,7 +578,6 @@
         const name = document.getElementById('regName').value.trim();
         const p = document.getElementById('regPass').value.trim();
         const err = document.getElementById('authError');
-
         const scRegex = /^SC\d{2}[BMD](?!000)\d{3}$/;
 
         if (!sc || !name || !p) {
@@ -588,26 +585,25 @@
             err.style.display = 'block';
             return;
         }
-
         if (!scRegex.test(sc)) {
             err.innerText = "Invalid SC Code format.";
             err.style.display = 'block';
             return;
         }
 
-        fetch("/register",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({sc:sc,name:name,password:p})
+        fetch("/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sc: sc, name: name, password: p })
         })
-        .then(r=>r.json())
-        .then(data=>{
-            if(data.status==="ok"){
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === "ok") {
                 alert("Registered Successfully. Please Login.");
                 toggleAuthMode('login');
             } else {
-                err.innerText="User already exists";
-                err.style.display='block';
+                err.innerText = "User already exists";
+                err.style.display = 'block';
             }
         });
     }
@@ -616,16 +612,14 @@
         currentUser = null;
         currentFullName = null;
         isAdmin = false;
-        localStorage.removeItem('fCurrentUser');
-        localStorage.removeItem('fIsAdmin');
-        
+        localStorage.clear(); 
         document.getElementById('adminTabBtn').style.display = "none";
-        
         showLoginUI();
         document.getElementById('loginUser').value = '';
         document.getElementById('loginPass').value = '';
     }
 
+    // --- UI HELPERS ---
     function showLoggedInUI() {
         document.getElementById('authScreen').classList.add('hidden');
         document.getElementById('squadInterface').classList.remove('hidden');
@@ -633,8 +627,7 @@
         document.getElementById('greetingText').innerText = `Hi, ${currentFullName}!`;
         document.querySelector('.sidebar').style.opacity = "1";
         document.querySelector('.sidebar').style.pointerEvents = "auto";
-        
-        // Ensure stats are rendered when you login
+
         renderStats();
 
         if (isAdmin) {
@@ -643,10 +636,10 @@
         } else {
             document.getElementById('adminTabBtn').style.display = "none";
             renderPlayers();
+            updateUI(); 
+            openTab('market');
         }
-
         renderLeaderboard();
-        updateUI(); 
     }
 
     function showLoginUI() {
@@ -670,80 +663,48 @@
         }
     }
 
-    // --- CORE GAME LOGIC ---
+    function openTab(name) {
+        if (name === 'admin' && !isAdmin) return;
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(name).classList.add('active');
+        const btn = document.querySelector(`button[onclick="openTab('${name}')"]`);
+        if (btn) btn.classList.add('active');
+        
+        // Refresh specific data on tab switch
+        if (name === 'leaderboard') renderLeaderboard();
+        if (name === 'stats') renderStats();
+    }
+
+    // --- SQUAD LOGIC ---
+    function recalculateBudget() {
+        if (isAdmin) return;
+        let used = 0;
+        if (mySquad.GK) used += mySquad.GK.price;
+        mySquad.DEF.forEach(p => used += p.price);
+        mySquad.FWD.forEach(p => used += p.price);
+        mySquad.Bench.forEach(p => used += p.price);
+        budget = 1000 - used;
+    }
+
     function save() {
         if (!currentUser || isAdmin) return;
-
-        // Keep local backup
-        localStorage.setItem(`fSquad_${currentUser}`, JSON.stringify(mySquad));
-        localStorage.setItem(`fCaptain_${currentUser}`, captainName);
-
-        // Save to server
-        fetch("/save_squad",{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
+        
+        fetch("/save_squad", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
                 sc: currentUser,
                 squad: JSON.stringify(mySquad),
                 captain: captainName
             })
-        });
+        }).then(r => r.json())
+          .then(data => console.log("Squad Auto-saved"));
     }
 
-    // --- ADMIN FUNCTIONS ---
-    function renderAdminPanel() {
-        const tbody = document.getElementById('adminStatsBody');
-        tbody.innerHTML = players.map(p => {
-            const s = playerStats[p.name];
-            return `
-            <tr>
-                <td style="text-align:left; font-weight:bold;">${p.name}</td>
-                <td><input type="number" class="admin-input" id="stat_starting_${p.name}" value="${s.starting}"></td>
-                <td><input type="number" class="admin-input" id="stat_goals_${p.name}" value="${s.goals}"></td>
-                <td><input type="number" class="admin-input" id="stat_assists_${p.name}" value="${s.assists}"></td>
-                <td><input type="number" class="admin-input" id="stat_saves_${p.name}" value="${s.saves}"></td>
-                <td><input type="number" class="admin-input" id="stat_mom_${p.name}" value="${s.mom}"></td>
-                <td><input type="number" class="admin-input" id="stat_yellow_${p.name}" value="${s.yellow}"></td>
-                <td><input type="number" class="admin-input" id="stat_red_${p.name}" value="${s.red}"></td>
-            </tr>`;
-        }).join('');
-    }
+    // --- MARKET/PLAYER LOGIC ---
+    let pendingPlayer = null;
 
-    function saveAdminStats() {
-        if(!confirm("Are you sure? This will update stats and recalculate all user points.")) return;
-
-        players.forEach(p => {
-            playerStats[p.name] = {
-                starting: parseInt(document.getElementById(`stat_starting_${p.name}`).value) || 0,
-                goals: parseInt(document.getElementById(`stat_goals_${p.name}`).value) || 0,
-                assists: parseInt(document.getElementById(`stat_assists_${p.name}`).value) || 0,
-                saves: parseInt(document.getElementById(`stat_saves_${p.name}`).value) || 0,
-                mom: parseInt(document.getElementById(`stat_mom_${p.name}`).value) || 0,
-                yellow: parseInt(document.getElementById(`stat_yellow_${p.name}`).value) || 0,
-                red: parseInt(document.getElementById(`stat_red_${p.name}`).value) || 0
-            };
-        });
-
-        localStorage.setItem('fPlayerStats', JSON.stringify(playerStats));
-        calculateTotalPoints();
-        localStorage.setItem('fLeader', JSON.stringify(leaderboard));
-
-        renderStats();
-        renderLeaderboard();
-        alert("Stats Updated and Points Recalculated!");
-    }
-
-    function openTab(name) {
-        if(name === 'admin' && !isAdmin) return; 
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(name).classList.add('active');
-        
-        const btn = document.querySelector(`button[onclick="openTab('${name}')"]`);
-        if(btn) btn.classList.add('active');
-    }
-
-    // --- RENDER LOGIC ---
     function renderPlayers() {
         const container = document.getElementById('playerList');
         const q = document.getElementById('search').value.toLowerCase();
@@ -752,9 +713,7 @@
 
         if (!mySquad || isAdmin) return; 
 
-        // TIMELOCK CHECK
         const marketOpen = isMarketOpen();
-
         const selectedNames = [
             ...(mySquad.GK ? [mySquad.GK.name] : []),
             ...mySquad.DEF.map(p => p.name),
@@ -785,29 +744,20 @@
         });
     }
 
-    // --- NEW MODAL POPUP LOGIC ---
-    let pendingPlayer = null;
-
     function addP(name) {
-        if(!isMarketOpen() && !isAdmin) { alert("Market is Closed! (Deadline Passed)"); return; }
-
+        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed!"); return; }
         const p = players.find(x => x.name === name);
-        if (budget < p.price) {
-            alert(`Budget exceeded! You need ${p.price - budget} more credits.`);
-            return;
-        }
+        if (budget < p.price) { alert(`Budget exceeded!`); return; }
 
         pendingPlayer = p;
-        const canGK = p.pos.includes("Goalkeeper");
-        const canDEF = p.pos.includes("Defender") || p.pos.includes("Midfielder");
-        const canFWD = p.pos.includes("Forward");
-        
         const gkFull = !!mySquad.GK;
         const defFull = mySquad.DEF.length >= 2;
         const fwdFull = mySquad.FWD.length >= 2;
         const benchFull = mySquad.Bench.length >= 2;
 
-        openRoleModal(p, canGK, gkFull, canDEF, defFull, canFWD, fwdFull, benchFull);
+        openRoleModal(p, p.pos.includes("Goalkeeper"), gkFull, 
+                         (p.pos.includes("Defender")||p.pos.includes("Midfielder")), defFull, 
+                         p.pos.includes("Forward"), fwdFull, benchFull);
     }
 
     function openRoleModal(p, canGK, gkFull, canDEF, defFull, canFWD, fwdFull, benchFull) {
@@ -835,14 +785,30 @@
     function confirmAdd(role) {
         const p = pendingPlayer;
         if (!p) return;
-
         if (role === "GK") mySquad.GK = p;
         else if (role === "DEF") mySquad.DEF.push(p);
         else if (role === "FWD") mySquad.FWD.push(p);
         else if (role === "Bench") mySquad.Bench.push(p);
-        
         document.getElementById('roleModal').classList.add('hidden');
         commitTransaction();
+    }
+
+    function removeP(type, idx) {
+        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed!"); return; }
+        let p;
+        if (type === 'GK') { p = mySquad.GK; mySquad.GK = null; }
+        else if (type === 'DEF') { p = mySquad.DEF[idx]; mySquad.DEF.splice(idx, 1); }
+        else if (type === 'FWD') { p = mySquad.FWD[idx]; mySquad.FWD.splice(idx, 1); }
+        else { p = mySquad.Bench[idx]; mySquad.Bench.splice(idx, 1); }
+        if (p && p.name === captainName) captainName = null;
+        commitTransaction();
+    }
+
+    function setCaptain(name) {
+        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed!"); return; }
+        captainName = name;
+        save();
+        updateUI();
     }
 
     function commitTransaction() {
@@ -851,108 +817,106 @@
         updateUI();
     }
 
-    function removeP(type, idx) {
-        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! (Deadline Passed)"); return; }
-        if (isAdmin) return;
-
-        let p;
-        if (type === 'GK') { p = mySquad.GK; mySquad.GK = null; }
-        else if (type === 'DEF') { p = mySquad.DEF[idx]; mySquad.DEF.splice(idx, 1); }
-        else if (type === 'FWD') { p = mySquad.FWD[idx]; mySquad.FWD.splice(idx, 1); }
-        else { p = mySquad.Bench[idx]; mySquad.Bench.splice(idx, 1); }
-
-        if (p && p.name === captainName) captainName = null;
-        
-        recalculateBudget();
-        save();
-        updateUI();
-    }
-
-    function setCaptain(name) {
-        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! (Deadline Passed)"); return; }
-        if (isAdmin) return;
-        captainName = name;
-        save();
-        updateUI();
-    }
-
     function updateUI() {
         if (!currentUser || isAdmin) return;
-
         const marketOpen = isMarketOpen();
-        const msgBox = document.getElementById('marketStatusBox');
-        if(!marketOpen) {
-            msgBox.style.display = 'block';
-            msgBox.className = 'market-closed-msg';
-            msgBox.innerText = "Market Closed (Deadline Passed)";
-        } else {
-            msgBox.style.display = 'none';
-        }
-
-        document.getElementById('budgetDisplay').innerText = budget;
         
+        // Budget
+        document.getElementById('budgetDisplay').innerText = budget;
+
+        // Pitch Rendering
         const createCard = (p, type, idx) => {
             if(!p) return `<div class="empty-slot">${type}</div>`;
             const isCap = (p.name === captainName);
-            
             const buttonsHtml = marketOpen ? `
                 <button class="captain-btn ${isCap ? 'captain-active' : ''}" onclick="setCaptain('${p.name}')">C</button>
                 <button class="remove-btn" onclick="removeP('${type}', ${idx})">✕</button>
             ` : (isCap ? `<div style="position:absolute; top:-5px; left:-5px; background:var(--accent); color:black; font-weight:bold; font-size:10px; padding:2px 5px; border-radius:4px;">C</div>` : '');
 
-            return `
-                <div class="player-card-pitch" style="${isCap ? 'border:2px solid var(--accent);' : ''}">
-                    ${buttonsHtml}
-                    <strong>${p.name.split(' ')[0]}</strong><br>
-                    <small>${p.price}</small>
-                </div>
-            `;
+            return `<div class="player-card-pitch" style="${isCap ? 'border:2px solid var(--accent);' : ''}">
+                ${buttonsHtml}
+                <strong>${p.name.split(' ')[0]}</strong><br><small>${p.price}</small>
+            </div>`;
         };
 
         document.getElementById('row-gk').innerHTML = createCard(mySquad.GK, 'GK', 0);
-        document.getElementById('row-def').innerHTML = 
-            createCard(mySquad.DEF[0], 'DEF', 0) + createCard(mySquad.DEF[1], 'DEF', 1);
-        document.getElementById('row-fwd').innerHTML = 
-            createCard(mySquad.FWD[0], 'FWD', 0) + createCard(mySquad.FWD[1], 'FWD', 1);
-
-        document.getElementById('bench-row').innerHTML = 
-            createCard(mySquad.Bench[0], 'Bench', 0) + createCard(mySquad.Bench[1], 'Bench', 1);
+        document.getElementById('row-def').innerHTML = createCard(mySquad.DEF[0], 'DEF', 0) + createCard(mySquad.DEF[1], 'DEF', 1);
+        document.getElementById('row-fwd').innerHTML = createCard(mySquad.FWD[0], 'FWD', 0) + createCard(mySquad.FWD[1], 'FWD', 1);
+        document.getElementById('bench-row').innerHTML = createCard(mySquad.Bench[0], 'Bench', 0) + createCard(mySquad.Bench[1], 'Bench', 1);
 
         const count = (mySquad.GK ? 1 : 0) + mySquad.DEF.length + mySquad.FWD.length + mySquad.Bench.length;
-        document.getElementById('playersCount').innerText = `${count}/7 Players Selected`;
-
+        document.getElementById('playersCount').innerText = `${count}/7 Players`;
+        
         const isValid = (count === 7);
         const msg = document.getElementById('statusMsg');
         const confirmBtn = document.getElementById('confirmBtn');
-
         if(isValid) {
-            msg.innerText = "Squad Valid! Good Luck.";
-            msg.className = "validation-msg valid";
-            confirmBtn.style.display = "block";
+            msg.innerText = "Squad Valid!"; msg.className = "validation-msg valid"; confirmBtn.style.display = "block";
         } else {
-            msg.innerText = `Team Incomplete (${7-count} needed)`;
-            msg.className = "validation-msg";
-            confirmBtn.style.display = "none";
+            msg.innerText = `Team Incomplete`; msg.className = "validation-msg"; confirmBtn.style.display = "none";
         }
-
         renderPlayers();
     }
-
+    
     function confirmSquad() {
-        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! Cannot save changes."); return; }
-        calculateTotalPoints();
+        if(!isMarketOpen() && !isAdmin) { alert("Market Closed"); return; }
         save();
-        alert("Team Saved! Check Leaderboard for your score.");
-        renderLeaderboard();
+        alert("Team Saved! Check Leaderboard.");
         openTab('leaderboard');
     }
 
+    // --- ADMIN PANEL ---
+    function renderAdminPanel() {
+        const tbody = document.getElementById('adminStatsBody');
+        tbody.innerHTML = players.map(p => {
+            const s = playerStats[p.name] || { goals: 0, assists: 0, saves: 0, mom: 0, yellow: 0, red: 0, starting: 0 };
+            return `<tr>
+                <td style="text-align:left; font-weight:bold;">${p.name}</td>
+                <td><input type="number" class="admin-input" id="stat_starting_${p.name}" value="${s.starting || 0}"></td>
+                <td><input type="number" class="admin-input" id="stat_goals_${p.name}" value="${s.goals || 0}"></td>
+                <td><input type="number" class="admin-input" id="stat_assists_${p.name}" value="${s.assists || 0}"></td>
+                <td><input type="number" class="admin-input" id="stat_saves_${p.name}" value="${s.saves || 0}"></td>
+                <td><input type="number" class="admin-input" id="stat_mom_${p.name}" value="${s.mom || 0}"></td>
+                <td><input type="number" class="admin-input" id="stat_yellow_${p.name}" value="${s.yellow || 0}"></td>
+                <td><input type="number" class="admin-input" id="stat_red_${p.name}" value="${s.red || 0}"></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function saveAdminStats() {
+        if(!confirm("Update global stats?")) return;
+        
+        let newStats = {};
+        players.forEach(p => {
+            newStats[p.name] = {
+                starting: parseInt(document.getElementById(`stat_starting_${p.name}`).value) || 0,
+                goals: parseInt(document.getElementById(`stat_goals_${p.name}`).value) || 0,
+                assists: parseInt(document.getElementById(`stat_assists_${p.name}`).value) || 0,
+                saves: parseInt(document.getElementById(`stat_saves_${p.name}`).value) || 0,
+                mom: parseInt(document.getElementById(`stat_mom_${p.name}`).value) || 0,
+                yellow: parseInt(document.getElementById(`stat_yellow_${p.name}`).value) || 0,
+                red: parseInt(document.getElementById(`stat_red_${p.name}`).value) || 0
+            };
+        });
+
+        fetch('/update_stats', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newStats)
+        }).then(() => {
+            playerStats = newStats;
+            renderStats();
+            renderLeaderboard();
+            alert("Stats updated and saved to server!");
+        });
+    }
+
+    // --- LEADERBOARD & STATS RENDERING ---
     function renderStats() {
         const tbody = document.getElementById('statsBody');
         tbody.innerHTML = players.map(p => {
-            const s = playerStats[p.name];
-            return `
-            <tr>
+            const s = playerStats[p.name] || { goals: 0, assists: 0, saves: 0, mom: 0, yellow: 0, red: 0, starting: 0 };
+            return `<tr>
                 <td class="stats-name-col">${p.name}</td>
                 <td><small>${p.pos[0].substr(0,3)}</small></td>
                 <td style="background:#e8f5e9; font-weight:bold;">${s.starting}</td>
@@ -966,83 +930,51 @@
         }).join('');
     }
 
-    // --- FIXED: Use user ID (SC Code) to fetch data, but display Name ---
-    function calculateTotalPoints() {
-        leaderboard.forEach(user => {
-            let total = 0;
-            
-            // Note: We use user.id (SC Code) to fetch data because the name displayed might be different
-            let userSquad = JSON.parse(localStorage.getItem(`fSquad_${user.id}`));
-            let userCap = localStorage.getItem(`fCaptain_${user.id}`);
+    function renderLeaderboard() {
+        // Fetch all users and squads from server to calculate scores
+        fetch('/leaderboard_data')
+            .then(r => r.json())
+            .then(data => {
+                leaderboardData = data; // Store [{sc, name, squad, captain}, ...]
+                calculateLeaderboardScores();
+            });
+    }
 
-            if (userSquad) {
-                const getPlayerPoints = (pName) => {
+    function calculateLeaderboardScores() {
+        const scoredUsers = leaderboardData.map(user => {
+            let total = 0;
+            const squad = user.squad;
+            
+            if (squad) {
+                const getPts = (pName) => {
                     if (!playerStats[pName]) return 0;
                     const s = playerStats[pName];
-                    let pts = (s.goals * 10) + (s.assists * 7) + (s.saves * 3) + 
-                              (s.mom * 20) + (s.yellow * -2) + (s.red * -5) + 
-                              (s.starting * 2); 
-                    return pts;
+                    return (s.goals * 10) + (s.assists * 7) + (s.saves * 3) + 
+                           (s.mom * 20) + (s.yellow * -2) + (s.red * -5) + (s.starting * 2);
                 };
 
-                // Starting XI
-                if(userSquad.GK) total += getPlayerPoints(userSquad.GK.name);
-                userSquad.DEF.forEach(p => total += getPlayerPoints(p.name));
-                userSquad.FWD.forEach(p => total += getPlayerPoints(p.name));
+                // Starters
+                if(squad.GK) total += getPts(squad.GK.name);
+                if(squad.DEF) squad.DEF.forEach(p => total += getPts(p.name));
+                if(squad.FWD) squad.FWD.forEach(p => total += getPts(p.name));
 
-                // Bench (50% points)
-                userSquad.Bench.forEach(p => {
-                    let benchPts = getPlayerPoints(p.name);
-                    total += (benchPts * 0.5); 
-                });
+                // Bench (50%)
+                if(squad.Bench) squad.Bench.forEach(p => total += (getPts(p.name) * 0.5));
 
                 // Captain (2x)
-                if (userCap) {
-                    const capPts = getPlayerPoints(userCap);
-                    total += capPts; 
-                }
+                if(user.captain) total += getPts(user.captain);
             }
-            user.pts = Math.floor(total);
+            
+            return { name: user.name, pts: Math.floor(total) };
         });
-        
-        leaderboard.sort((a, b) => b.pts - a.pts);
-    }
 
-    // --- FIXED: Render Full Name in Leaderboard ---
-    function renderLeaderboard() {
-        fetch("/leaderboard")
-        .then(r => r.json())
-        .then(serverData => {
-            leaderboard = [];
-            serverData.forEach(u => {
-                // Store ID for logic, Name for display
-                leaderboard.push({ id: u.sc, name: u.name, pts: 0 });
-            });
-            finishLeaderboardRender();
-        })
-        .catch(err => {
-            console.warn("Using local cache/fallback for leaderboard");
-            // Fallback for visual testing if server fails
-            if(leaderboard.length === 0 && currentUser) {
-                // Use currentFullName if available, else SC Code
-                const displayName = currentFullName || currentUser;
-                leaderboard.push({ id: currentUser, name: displayName, pts: 0 });
-            }
-            finishLeaderboardRender();
-        });
-    }
+        scoredUsers.sort((a, b) => b.pts - a.pts);
 
-    function finishLeaderboardRender() {
-        calculateTotalPoints();
         const body = document.getElementById('leaderboardBody');
-        body.innerHTML = leaderboard
+        body.innerHTML = scoredUsers
             .map((u, i) => `<tr><td style="padding:10px;">${i+1}</td><td>${u.name}</td><td>${u.pts}</td></tr>`)
             .join('');
     }
-
-    // Initialize check
-    checkLoginStatus();
-
 </script>
 </body>
 </html>
