@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIST 5s Fantasy League Pro</title>
+    <style>
+        :root { --primary: #1b5e20; --secondary: #2e7d32; --accent: #ffd700; --dark: #121212; --danger: #d32f2f; --light: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1200px; margin: auto; display: grid; grid-template-columns: 1fr 420px; gap: 25px; }
+        
+        /* HEADER */
+        header { grid-column: 1 / -1; text-align: center; background: var(--primary); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;}
+        
+        /* WELCOME BAR */
+        .welcome-bar { 
+            grid-column: 1 / -1; 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: white; padding: 15px 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+            display: none; 
+        }
+        .welcome-text { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 0; }
+        
+        .logout-btn { 
+            background: #ffebee; color: var(--danger); border: 1px solid var(--danger); 
+            padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; 
+            display: flex; align-items: center; gap: 8px; transition: 0.2s;
+        }
+        .logout-btn:hover { background: var(--danger); color: white; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; grid-column: 1/-1; justify-content: center; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 24px; background: #ddd; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .tab-btn.active { background: var(--secondary); color: white; transform: scale(1.05); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ADMIN TAB STYLE */
+        .admin-tab-btn { background: #333; color: #ffd700; display: none; }
+        .admin-tab-btn.active { background: #000; color: #ffd700; border: 1px solid #ffd700; }
+
+        /* Card Styles */
+        .card-box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 25px; }
+        
+        /* AUTH SCREEN */
+        .auth-container { 
+            max-width: 400px; margin: 50px auto; background: white; padding: 30px; 
+            border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center;
+        }
+        .auth-input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .auth-btn { width: 100%; padding: 12px; background: var(--secondary); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .auth-toggle { margin-top: 15px; font-size: 0.9rem; color: #666; cursor: pointer; text-decoration: underline; }
+        .hidden { display: none !important; }
+
+        /* MODAL POPUP STYLES */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 2000;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 12px;
+            width: 90%; max-width: 350px; text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            animation: fadeIn 0.2s ease-out;
+        }
+        
+        .modal-title { margin-top: 0; color: var(--primary); }
+        .modal-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        
+        .role-btn {
+            padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .role-btn:disabled { background-color: #e0e0e0 !important; color: #999 !important; cursor: not-allowed; }
+        
+        .btn-gk { background-color: #ff9800; } 
+        .btn-def { background-color: #2196f3; } 
+        .btn-fwd { background-color: #f44336; } 
+        .btn-bench { background-color: #607d8b; } 
+
+        /* Market Styles */
+        .player-list { height: 500px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
+        .player-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        .player-item:hover { background-color: #f9f9f9; }
+        .pos-badge { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: #eee; margin-right: 5px; color: #555; border: 1px solid #ddd;}
+
+        /* PITCH STYLES */
+        .pitch-container {
+            background: linear-gradient(to bottom, #2e7d32, #1b5e20);
+            border: 4px solid white;
+            border-radius: 8px;
+            height: 500px;
+            position: relative;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            padding: 10px;
+        }
+        .pitch-line-center { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: rgba(255,255,255,0.4); }
+        .pitch-circle { position: absolute; top: 50%; left: 50%; width: 80px; height: 80px; border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; transform: translate(-50%, -50%); }
+
+        .pitch-row { display: flex; justify-content: space-around; align-items: center; z-index: 2; height: 33%; }
+        .player-card-pitch {
+            background: rgba(255,255,255,0.9);
+            border-radius: 6px;
+            padding: 5px;
+            width: 80px;
+            text-align: center;
+            font-size: 0.8rem;
+            position: relative;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: 0.2s;
+        }
+        .player-card-pitch:hover { transform: translateY(-3px); }
+        .player-card-pitch .remove-btn { 
+            position: absolute; top: -5px; right: -5px; background: red; color: white; 
+            border-radius: 50%; width: 18px; height: 18px; font-size: 12px; cursor: pointer; border: none; 
+            display: block;
+        }
+        .player-card-pitch .captain-btn {
+            position: absolute; top: -5px; left: -5px; background: #ccc; color: black; 
+            border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; border: none; font-weight: bold;
+            display: block;
+        }
+        .captain-active { background: var(--accent) !important; color: black !important; }
+
+        .empty-slot { 
+            border: 2px dashed rgba(255,255,255,0.5); 
+            background: rgba(0,0,0,0.1); 
+            color: white; 
+            display: flex; align-items: center; justify-content: center;
+            height: 60px; width: 60px; border-radius: 50%;
+            font-size: 0.7rem; text-align: center;
+        }
+
+        .bench-container { display: flex; gap: 10px; background: #ddd; padding: 10px; border-radius: 8px; justify-content: center; }
+        .validation-msg { background: var(--danger); color: white; padding: 10px; border-radius: 4px; text-align: center; display: none; font-size: 0.9rem;}
+        .validation-msg.valid { background: var(--secondary); display: block; }
+        .market-closed-msg { background: #ffebee; color: #d32f2f; padding: 10px; text-align: center; font-weight: bold; border-radius: 4px; margin-bottom: 15px;}
+
+        /* STATS TABLE STYLES */
+        .stats-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .stats-table th { background: var(--primary); color: white; padding: 10px; text-align: center; position: sticky; top: 0; }
+        .stats-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
+        .stats-table tr:nth-child(even) { background-color: #f9f9f9; }
+        .stats-name-col { text-align: left !important; font-weight: bold; }
+
+        /* ADMIN TABLE STYLES */
+        .admin-input { width: 50px; padding: 5px; text-align: center; border: 1px solid #ccc; border-radius: 4px; }
+        .admin-save-btn { width: 100%; padding: 15px; background: #333; color: #ffd700; border: none; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 20px; }
+        .admin-save-btn:hover { background: #000; }
+
+        /* Sidebar UI */
+        .budget-card { background: var(--dark); color: white; padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; }
+        .btn { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-action { width: 100%; padding: 10px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>IIST 5s Fantasy Football League</h1>
+    <p>Official Tournament Manager | Feb 16 - Feb 20</p>
+</header>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="openTab('market')">Squad Builder</button>
+    <button class="tab-btn" onclick="openTab('stats')">Player Stats</button>
+    <button class="tab-btn" onclick="openTab('schedule')">Schedule</button>
+    <button class="tab-btn" onclick="openTab('leaderboard')">Leaderboard</button>
+    <button class="tab-btn admin-tab-btn" id="adminTabBtn" onclick="openTab('admin')">Admin Console</button>
+</div>
+
+<div id="roleModal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <h3 class="modal-title">Select Position</h3>
+        <p>Where should <span id="modalPlayerName" style="font-weight:bold;"></span> play?</p>
+        <div id="modalButtons" class="modal-buttons">
+            </div>
+        <button onclick="document.getElementById('roleModal').classList.add('hidden')" style="margin-top:20px; padding:10px; background:transparent; border:1px solid #ccc; border-radius:6px; cursor:pointer;">Cancel</button>
+    </div>
+</div>
+
+<div class="container">
+    
+    <div id="welcomeBar" class="welcome-bar">
+        <h2 id="greetingText" class="welcome-text">Hi, Guest!</h2>
+        <button onclick="logout()" class="logout-btn">
+            Logout 
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+        </button>
+    </div>
+
+    <main>
+        <div id="market" class="tab-content active">
+            
+            <div id="authScreen" class="auth-container">
+                <h2 id="authTitle">Login to Play</h2>
+                
+                <div id="loginForm">
+                    <input type="text" id="loginUser" class="auth-input" placeholder="SC Code (Username)">
+                    <input type="password" id="loginPass" class="auth-input" placeholder="Password">
+                    <button class="auth-btn" onclick="handleLogin()">Login</button>
+                    <div class="auth-toggle" onclick="toggleAuthMode('register')">Don't have an account? <b>Register now</b></div>
+                </div>
+
+                <div id="registerForm" class="hidden">
+                    <p style="font-size:0.8rem; color:#666; margin-bottom:10px;">Format: SCyyxNNN (e.g., SC21B123)</p>
+                    <input type="text" id="regSC" class="auth-input" placeholder="SC Code (SCyyxNNN)">
+                    <input type="text" id="regName" class="auth-input" placeholder="Full Name">
+                    <input type="password" id="regPass" class="auth-input" placeholder="Create Password">
+                    <button class="auth-btn" style="background:var(--primary)" onclick="handleRegister()">Register</button>
+                    <div class="auth-toggle" onclick="toggleAuthMode('login')">Already have an account? <b>Login</b></div>
+                </div>
+                <p id="authError" style="color:red; font-size:0.9rem; margin-top:10px; display:none;"></p>
+            </div>
+
+            <div id="squadInterface" class="hidden">
+                <div id="marketStatusBox" style="display:none;"></div>
+
+                <div class="card-box" style="background: transparent; box-shadow: none; padding: 0;">
+                    <h3 style="color: var(--primary);">Your Starting V (1-2-2)</h3>
+                    <div class="pitch-container">
+                        <div class="pitch-circle"></div>
+                        <div class="pitch-line-center"></div>
+                        <div class="pitch-row" id="row-gk"></div>
+                        <div class="pitch-row" id="row-def"></div>
+                        <div class="pitch-row" id="row-fwd"></div>
+                    </div>
+                    <h4 style="margin-bottom: 5px;">Bench (0.5x Points)</h4>
+                    <div class="bench-container" id="bench-row"></div>
+                </div>
+
+                <div class="card-box">
+                    <h3>Player Market</h3>
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                        <input type="text" id="search" placeholder="Search name..." onkeyup="renderPlayers()" style="flex:1; padding:10px; border: 1px solid #ccc; border-radius: 4px;">
+                        <select id="filter" onchange="renderPlayers()" style="padding:10px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="All">All Positions</option>
+                            <option value="Goalkeeper">Goalkeeper</option>
+                            <option value="Defender">Defender</option>
+                            <option value="Midfielder">Midfielder</option>
+                            <option value="Forward">Forward</option>
+                        </select>
+                    </div>
+                    <div id="playerList" class="player-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="stats" class="tab-content">
+            <div class="card-box">
+                <h3>Tournament Statistics</h3>
+                <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th class="stats-name-col">Player</th>
+                                <th>Pos</th>
+                                <th title="Matches in Starting 5" style="background:var(--secondary);">Starts</th>
+                                <th title="Goals Scored">Goals</th>
+                                <th title="Assists">Assist</th>
+                                <th title="Saves (GK)">Saves</th>
+                                <th title="Man of the Match">MOM</th>
+                                <th title="Yellow Card" style="background:#fbc02d; color:black;">YC</th>
+                                <th title="Red Card" style="background:#d32f2f;">RC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="admin" class="tab-content">
+            <div class="card-box" style="border: 2px solid #ffd700;">
+                <h3 style="color:#333; display:flex; justify-content:space-between;">
+                    <span>Admin Stats Controller</span>
+                    <span style="font-size:0.8rem; background:#333; color:#ffd700; padding:5px 10px; border-radius:4px;">ADMIN ACCESS</span>
+                </h3>
+                <p style="font-size:0.9rem; color:#666;">Edit player stats below. Clicking 'Update & Recalculate' will instantly update the public leaderboard and stats.</p>
+                <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th class="stats-name-col">Player</th>
+                                <th>Starts</th>
+                                <th>Goals</th>
+                                <th>Assists</th>
+                                <th>Saves</th>
+                                <th>MOM</th>
+                                <th>YC</th>
+                                <th>RC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminStatsBody">
+                            </tbody>
+                    </table>
+                </div>
+                <button class="admin-save-btn" onclick="saveAdminStats()">Update & Recalculate Leaderboard</button>
+            </div>
+        </div>
+
+        <div id="schedule" class="tab-content">
+            <div class="card-box">
+                <h3>Match Schedule (8 Teams | 2 Groups)</h3>
+                <div style="margin-bottom: 20px;">
+                    <div style="background:#f9f9f9; padding:15px; border-left: 5px solid var(--secondary); margin-bottom:10px;">
+                        <strong>Feb 16:</strong> Group A & B Round 1 (4 Matches)
+                    </div>
+                    <div style="background:#f9f9f9; padding:15px; border-left: 5px solid var(--secondary); margin-bottom:10px;">
+                        <strong>Feb 17:</strong> Group A & B Round 2 (4 Matches)
+                    </div>
+                    <div style="background:#f9f9f9; padding:15px; border-left: 5px solid var(--secondary); margin-bottom:10px;">
+                        <strong>Feb 18:</strong> Group A & B Round 3 (4 Matches)
+                    </div>
+                </div>
+                <h4>Knockouts: Feb 19 - 20</h4>
+                <div style="background:#f9f9f9; padding:15px; border-left: 5px solid var(--accent); margin-bottom:10px;">
+                    <strong>Feb 19:</strong> Semi-Finals
+                </div>
+                <div style="background:#f9f9f9; padding:15px; border-left: 5px solid gold;">
+                    <strong>Feb 20:</strong> Grand Final
+                </div>
+            </div>
+        </div>
+
+        <div id="leaderboard" class="tab-content">
+             <div class="card-box">
+                <h3>Global Standings</h3>
+                <table style="width:100%; text-align:left; border-collapse: collapse;">
+                    <thead style="background:#eee;"><tr><th style="padding:10px;">Rank</th><th>Full Name</th><th>Total</th></tr></thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <aside class="sidebar">
+        <div class="budget-card">
+            <div style="font-size: 0.9rem; opacity: 0.8;">REMAINING BUDGET</div>
+            <div style="font-size:32px; font-weight:bold; color:var(--accent);" id="budgetDisplay">1000</div>
+            <div style="font-size: 0.8rem; margin-top: 5px;" id="playersCount">0/7 Players Selected</div>
+        </div>
+
+        <div id="statusMsg" class="validation-msg">Team Incomplete</div>
+        
+        <button id="confirmBtn" class="btn-action" style="background:#4CAF50; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; display:none; margin-bottom:20px;" onclick="confirmSquad()">
+            Confirm Final Squad
+        </button>
+
+        <div class="card-box">
+            <h4>Scoring Rules</h4>
+            <ul style="padding-left: 20px; font-size: 0.85rem; line-height: 1.6;">
+                <li><strong>Goal:</strong> +10 pts</li>
+                <li><strong>Assist:</strong> +7 pts</li>
+                <li><strong>Starting 5:</strong> +2 pts (Starters Only)</li>
+                <li><strong>Save (GK):</strong> +3 pts</li>
+                <li><strong>MOM:</strong> +20 pts</li>
+                <li><strong>Yellow Card:</strong> -2 pts</li>
+                <li><strong>Red Card:</strong> -5 pts</li>
+                <li><strong>Bench:</strong> 50% Points</li>
+                <li style="color:var(--secondary); font-weight:bold; margin-top:5px;">Captain: 2x Total Points</li>
+            </ul>
+        </div>
+        
+        <div class="card-box">
+             <h4>Squad Rules</h4>
+             <ul style="padding-left: 20px; font-size: 0.85rem; line-height: 1.6;">
+                <li>Formation: 1 GK, 2 DEF, 2 FWD</li>
+                <li>Bench: 2 Subs (Any pos)</li>
+                <li><strong>Note:</strong> Defenders and Midfielders are considered the same category for selection.</li>
+            </ul>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // --- TIMELOCK CONFIG ---
+    // Strict Deadline: Feb 6, 2026, 11:00 PM
+    const DEADLINE = new Date("2026-02-06T23:00:00");
+
+    function isMarketOpen() {
+        return new Date() < DEADLINE;
+    }
+
+    // --- ADMIN CREDENTIALS ---
+    const ADMIN_USER = "ADMIN";
+    const ADMIN_PASS = "admin123";
+
+    // --- SCORING CONSTANTS ---
+    const POINTS = {
+        GOAL: 10,
+        ASSIST: 7,
+        STARTING: 2,
+        SAVE: 3,
+        MOM: 20,
+        YELLOW: -2,
+        RED: -5
+    };
+
+    // --- DATA ---
+    const players = [
+        { name: "Amal", price: 300, pos: ["Forward"] }, { name: "Aromal", price: 300, pos: ["Midfielder"] },
+        { name: "Jerin", price: 300, pos: ["Defender"] }, { name: "Kiran", price: 300, pos: ["Forward"] },
+        { name: "Deepak", price: 300, pos: ["Goalkeeper"] }, { name: "Athil", price: 300, pos: ["Midfielder"] },
+        { name: "Jyothish", price: 300, pos: ["Defender"] }, { name: "Hari", price: 300, pos: ["Forward"] },
+        { name: "Aryan Ahalawat", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Francis Babu", price: 300, pos: ["Defender", "Midfielder"] },
+        { name: "Kushal Aradhya H V", price: 300, pos: ["Midfielder", "Forward"] },
+        { name: "Mecwin Levy TS", price: 300, pos: ["Defender", "Midfielder"] },
+        { name: "Nishkalan", price: 300, pos: ["Goalkeeper", "Defender", "Midfielder", "Forward"] },
+        { name: "Venkatakrishnan", price: 300, pos: ["Midfielder", "Forward"] },
+        { name: "Vishnu Ashok Kumar", price: 300, pos: ["Defender"] },
+        { name: "Yash Rana", price: 300, pos: ["Goalkeeper"] },
+        { name: "Navaroj", price: 200, pos: ["Goalkeeper"] },
+        { name: "Madhav", price: 200, pos: ["Goalkeeper"] },
+        { name: "James T Kurian", price: 200, pos: ["Defender"] },
+        { name: "Kaar Mugilan KA", price: 200, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Prajwal Shreshta Grandhi", price: 200, pos: ["Midfielder", "Forward"] },
+        { name: "Snehith", price: 200, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Aditya Kaundilya", price: 200, pos: ["Goalkeeper"] },
+        { name: "Liton Narjinari", price: 200, pos: ["Defender"] },
+        { name: "Sreyas S P", price: 200, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Shivanand RP", price: 200, pos: ["Defender", "Forward"] },
+        { name: "Dolla Bhargav", price: 200, pos: ["Midfielder", "Forward"] },
+        { name: "Sreejith", price: 200, pos: ["Forward"] },
+        { name: "Abhay Prajapati", price: 200, pos: ["Defender"] },
+        { name: "Nilakamal", price: 200, pos: ["Forward"] },
+        { name: "Jeyaram", price: 200, pos: ["Defender", "Midfielder"] },
+        { name: "Abhijith", price: 100, pos: ["Defender", "Midfielder"] },
+        { name: "Roshan Kumar Bishoyi", price: 100, pos: ["Defender"] },
+        { name: "Pramodh", price: 100, pos: ["Defender", "Forward"] },
+        { name: "Akash Namasudra", price: 100, pos: ["Forward"] },
+        { name: "Rudraa Bhuvad", price: 100, pos: ["Defender", "Midfielder"] },
+        { name: "Aijaz", price: 100, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Mainak", price: 100, pos: ["Forward"] },
+        { name: "Ruthish PS", price: 100, pos: ["Defender"] },
+        { name: "Khavin. J", price: 100, pos: ["Midfielder", "Forward"] },
+        { name: "Hariom Meena", price: 100, pos: ["Defender", "Forward"] },
+        { name: "Abhinav K", price: 100, pos: ["Midfielder"] },
+        { name: "Virendra Chaneja", price: 100, pos: ["Goalkeeper"] },
+        { name: "Abinav I V", price: 100, pos: ["Midfielder", "Forward"] },
+        { name: "Sreehari Vinod", price: 50, pos: ["Goalkeeper", "Defender"] },
+        { name: "Dishant Jain", price: 50, pos: ["Defender", "Midfielder"] },
+        { name: "Pushkal", price: 50, pos: ["Goalkeeper", "Defender"] },
+        { name: "Vishnu", price: 50, pos: ["Midfielder"] },
+        { name: "Aryan Singh", price: 50, pos: ["Defender", "Midfielder"] },
+        { name: "Ramkishore", price: 50, pos: ["Goalkeeper", "Midfielder"] },
+        { name: "Atul", price: 50, pos: ["Midfielder", "Forward"] },
+        { name: "Yash", price: 50, pos: ["Midfielder"] },
+        { name: "Abhay Sharma", price: 50, pos: ["Goalkeeper"] },
+        { name: "Sanjay Kumar S", price: 50, pos: ["Defender", "Midfielder"] },
+        { name: "Piyush Kumar Meena", price: 50, pos: ["Midfielder"] },
+        { name: "Souren Ghosh", price: 50, pos: ["Forward"] },
+        { name: "Vamsi", price: 50, pos: ["Defender"] },
+        { name: "Akash B", price: 50, pos: ["Midfielder"] },
+        { name: "Mohammed Owais P H", price: 50, pos: ["Midfielder", "Forward"] },
+        { name: "Vaibhav Rikhari", price: 50, pos: ["Goalkeeper", "Defender", "Midfielder"] }
+    ];
+
+    // --- INIT STATS ---
+    let playerStats = JSON.parse(localStorage.getItem('fPlayerStats')) || {};
+    players.forEach(p => {
+        if (!playerStats[p.name]) {
+            playerStats[p.name] = { goals: 0, assists: 0, saves: 0, mom: 0, yellow: 0, red: 0, starting: 0 };
+        }
+    });
+
+    // --- GLOBAL VARS ---
+    let currentUser = null; 
+    let currentFullName = null; 
+    let isAdmin = false; 
+    
+    let userCreds = JSON.parse(localStorage.getItem('fUserCreds')) || {};
+    let userDetails = JSON.parse(localStorage.getItem('fUserDetails')) || {}; 
+
+    // Squad State
+    let mySquad = { GK: null, DEF: [], FWD: [], Bench: [] };
+    let budget = 1000;
+    let captainName = null;
+    let leaderboard = JSON.parse(localStorage.getItem('fLeader')) || [];
+
+    // --- AUTH LOGIC ---
+    function checkLoginStatus() {
+        const storedUser = localStorage.getItem('fCurrentUser');
+        const storedAdmin = localStorage.getItem('fIsAdmin');
+
+        if (storedUser) {
+            currentUser = storedUser;
+            isAdmin = (storedAdmin === 'true');
+            
+            if(isAdmin) {
+                currentFullName = "Administrator";
+            } else {
+                currentFullName = userDetails[currentUser] || currentUser;
+            }
+            
+            initUserData();
+            showLoggedInUI();
+        } else {
+            showLoginUI();
+        }
+    }
+
+    function initUserData() {
+        if(isAdmin) {
+            renderAdminPanel();
+            return;
+        }
+        mySquad = JSON.parse(localStorage.getItem(`fSquad_${currentUser}`)) || { GK: null, DEF: [], FWD: [], Bench: [] };
+        captainName = localStorage.getItem(`fCaptain_${currentUser}`) || null;
+        recalculateBudget();
+        updateUI();
+    }
+
+    function recalculateBudget() {
+        if(isAdmin) return;
+        let used = 0;
+        if(mySquad.GK) used += mySquad.GK.price;
+        mySquad.DEF.forEach(p => used += p.price);
+        mySquad.FWD.forEach(p => used += p.price);
+        mySquad.Bench.forEach(p => used += p.price);
+        budget = 1000 - used;
+        localStorage.setItem(`fBudget_${currentUser}`, budget.toString());
+    }
+
+    function handleLogin() {
+    let u = document.getElementById('loginUser').value.trim().toUpperCase();
+    const p = document.getElementById('loginPass').value.trim();
+    const err = document.getElementById('authError');
+
+    // ADMIN LOGIN (unchanged)
+    if (u === ADMIN_USER && p === ADMIN_PASS) {
+        currentUser = ADMIN_USER;
+        currentFullName = "Administrator";
+        isAdmin = true;
+        localStorage.setItem('fCurrentUser', currentUser);
+        localStorage.setItem('fIsAdmin', 'true');
+        initUserData();
+        showLoggedInUI();
+        err.style.display = 'none';
+        return;
+    }
+
+    // SERVER USER LOGIN
+    fetch("/login",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sc:u,password:p})
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        if(data.status==="ok"){
+            currentUser = u;
+            currentFullName = data.name;
+            isAdmin = false;
+            localStorage.setItem('fCurrentUser', u);
+            localStorage.removeItem('fIsAdmin');
+            initUserData();
+            showLoggedInUI();
+            err.style.display = 'none';
+        } else {
+            err.innerText = "Invalid SC Code or Password";
+            err.style.display = 'block';
+        }
+    });
+}
+
+
+    function handleRegister() {
+    const sc = document.getElementById('regSC').value.trim().toUpperCase();
+    const name = document.getElementById('regName').value.trim();
+    const p = document.getElementById('regPass').value.trim();
+    const err = document.getElementById('authError');
+
+    const scRegex = /^SC\d{2}[BMD](?!000)\d{3}$/;
+
+    if (!sc || !name || !p) {
+        err.innerText = "Please fill all fields";
+        err.style.display = 'block';
+        return;
+    }
+
+    if (!scRegex.test(sc)) {
+        err.innerText = "Invalid SC Code format.";
+        err.style.display = 'block';
+        return;
+    }
+
+    fetch("/register",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sc:sc,name:name,password:p})
+    })
+    .then(r=>r.json())
+    .then(data=>{
+        if(data.status==="ok"){
+            alert("Registered Successfully. Please Login.");
+            toggleAuthMode('login');
+        } else {
+            err.innerText="User already exists";
+            err.style.display='block';
+        }
+    });
+}
+
+
+    function logout() {
+        currentUser = null;
+        currentFullName = null;
+        isAdmin = false;
+        localStorage.removeItem('fCurrentUser');
+        localStorage.removeItem('fIsAdmin');
+        
+        document.getElementById('adminTabBtn').style.display = "none";
+        
+        showLoginUI();
+        document.getElementById('loginUser').value = '';
+        document.getElementById('loginPass').value = '';
+    }
+
+    function showLoggedInUI() {
+        document.getElementById('authScreen').classList.add('hidden');
+        document.getElementById('squadInterface').classList.remove('hidden');
+        document.getElementById('welcomeBar').style.display = 'flex';
+        document.getElementById('greetingText').innerText = `Hi, ${currentFullName}!`;
+        document.querySelector('.sidebar').style.opacity = "1";
+        document.querySelector('.sidebar').style.pointerEvents = "auto";
+        
+        if (isAdmin) {
+            document.getElementById('adminTabBtn').style.display = "block";
+            openTab('admin');
+        } else {
+            document.getElementById('adminTabBtn').style.display = "none";
+            renderPlayers();
+        }
+
+        renderLeaderboard();
+        updateUI(); 
+    }
+
+    function showLoginUI() {
+        document.getElementById('authScreen').classList.remove('hidden');
+        document.getElementById('squadInterface').classList.add('hidden');
+        document.getElementById('welcomeBar').style.display = 'none';
+        document.querySelector('.sidebar').style.opacity = "0.3";
+        document.querySelector('.sidebar').style.pointerEvents = "none";
+    }
+
+    function toggleAuthMode(mode) {
+        document.getElementById('authError').style.display = 'none';
+        if (mode === 'register') {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+            document.getElementById('authTitle').innerText = "Register New Team";
+        } else {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('authTitle').innerText = "Login to Play";
+        }
+    }
+
+    // --- CORE GAME LOGIC ---
+    function save() {
+    if (!currentUser || isAdmin) return;
+
+    // Keep local backup
+    localStorage.setItem(`fSquad_${currentUser}`, JSON.stringify(mySquad));
+    localStorage.setItem(`fCaptain_${currentUser}`, captainName);
+
+    // Save to server
+    fetch("/save_squad",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            sc: currentUser,
+            squad: JSON.stringify(mySquad),
+            captain: captainName
+        })
+    });
+}
+
+
+    // --- ADMIN FUNCTIONS ---
+    function renderAdminPanel() {
+        const tbody = document.getElementById('adminStatsBody');
+        tbody.innerHTML = players.map(p => {
+            const s = playerStats[p.name];
+            return `
+            <tr>
+                <td style="text-align:left; font-weight:bold;">${p.name}</td>
+                <td><input type="number" class="admin-input" id="stat_starting_${p.name}" value="${s.starting}"></td>
+                <td><input type="number" class="admin-input" id="stat_goals_${p.name}" value="${s.goals}"></td>
+                <td><input type="number" class="admin-input" id="stat_assists_${p.name}" value="${s.assists}"></td>
+                <td><input type="number" class="admin-input" id="stat_saves_${p.name}" value="${s.saves}"></td>
+                <td><input type="number" class="admin-input" id="stat_mom_${p.name}" value="${s.mom}"></td>
+                <td><input type="number" class="admin-input" id="stat_yellow_${p.name}" value="${s.yellow}"></td>
+                <td><input type="number" class="admin-input" id="stat_red_${p.name}" value="${s.red}"></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function saveAdminStats() {
+        if(!confirm("Are you sure? This will update stats and recalculate all user points.")) return;
+
+        players.forEach(p => {
+            playerStats[p.name] = {
+                starting: parseInt(document.getElementById(`stat_starting_${p.name}`).value) || 0,
+                goals: parseInt(document.getElementById(`stat_goals_${p.name}`).value) || 0,
+                assists: parseInt(document.getElementById(`stat_assists_${p.name}`).value) || 0,
+                saves: parseInt(document.getElementById(`stat_saves_${p.name}`).value) || 0,
+                mom: parseInt(document.getElementById(`stat_mom_${p.name}`).value) || 0,
+                yellow: parseInt(document.getElementById(`stat_yellow_${p.name}`).value) || 0,
+                red: parseInt(document.getElementById(`stat_red_${p.name}`).value) || 0
+            };
+        });
+
+        localStorage.setItem('fPlayerStats', JSON.stringify(playerStats));
+        calculateTotalPoints();
+        localStorage.setItem('fLeader', JSON.stringify(leaderboard));
+
+        renderStats();
+        renderLeaderboard();
+        alert("Stats Updated and Points Recalculated!");
+    }
+
+    function openTab(name) {
+        if(name === 'admin' && !isAdmin) return; 
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(name).classList.add('active');
+        
+        const btn = document.querySelector(`button[onclick="openTab('${name}')"]`);
+        if(btn) btn.classList.add('active');
+    }
+
+    // --- RENDER LOGIC ---
+    function renderPlayers() {
+        const container = document.getElementById('playerList');
+        const q = document.getElementById('search').value.toLowerCase();
+        const f = document.getElementById('filter').value;
+        container.innerHTML = '';
+
+        if (!mySquad || isAdmin) return; 
+
+        // TIMELOCK CHECK
+        const marketOpen = isMarketOpen();
+
+        const selectedNames = [
+            ...(mySquad.GK ? [mySquad.GK.name] : []),
+            ...mySquad.DEF.map(p => p.name),
+            ...mySquad.FWD.map(p => p.name),
+            ...mySquad.Bench.map(p => p.name)
+        ];
+
+        players.filter(p => (f === 'All' || p.pos.includes(f)) && p.name.toLowerCase().includes(q))
+               .forEach(p => {
+            const isSel = selectedNames.includes(p.name);
+            const isDisabled = isSel || budget < p.price || !marketOpen;
+            
+            const div = document.createElement('div');
+            div.className = 'player-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${p.name}</strong> 
+                    <span class="pos-badge">${p.pos.join(' | ')}</span>
+                </div>
+                <div style="text-align:right">
+                    <span style="display:block; font-size:0.9em; color:#666">${p.price} Cr</span>
+                    <button class="btn" style="background:${isSel ? '#ccc' : (marketOpen ? 'var(--secondary)' : '#999')}; color:white; font-size:0.8em;" 
+                            onclick="addP('${p.name}')" ${isDisabled ? 'disabled' : ''}>
+                        ${isSel ? 'Added' : (marketOpen ? 'Add +' : 'Locked')}
+                    </button>
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    // --- NEW MODAL POPUP LOGIC ---
+    let pendingPlayer = null;
+
+    function addP(name) {
+        if(!isMarketOpen() && !isAdmin) { alert("Market is Closed! (11:00 PM Deadline)"); return; }
+
+        const p = players.find(x => x.name === name);
+        if (budget < p.price) {
+            alert(`Budget exceeded! You need ${p.price - budget} more credits.`);
+            return;
+        }
+
+        pendingPlayer = p;
+        const canGK = p.pos.includes("Goalkeeper");
+        const canDEF = p.pos.includes("Defender") || p.pos.includes("Midfielder");
+        const canFWD = p.pos.includes("Forward");
+        
+        const gkFull = !!mySquad.GK;
+        const defFull = mySquad.DEF.length >= 2;
+        const fwdFull = mySquad.FWD.length >= 2;
+        const benchFull = mySquad.Bench.length >= 2;
+
+        openRoleModal(p, canGK, gkFull, canDEF, defFull, canFWD, fwdFull, benchFull);
+    }
+
+    function openRoleModal(p, canGK, gkFull, canDEF, defFull, canFWD, fwdFull, benchFull) {
+        document.getElementById('modalPlayerName').innerText = p.name;
+        const btnContainer = document.getElementById('modalButtons');
+        btnContainer.innerHTML = ''; 
+
+        const createBtn = (label, cls, disabled, role) => {
+            const btn = document.createElement('button');
+            btn.className = `role-btn ${cls}`;
+            btn.innerHTML = `<span>${label}</span> ${disabled ? '<span style="font-size:0.8em;">(Full)</span>' : ''}`;
+            if(disabled) btn.disabled = true;
+            else btn.onclick = () => { confirmAdd(role); };
+            btnContainer.appendChild(btn);
+        };
+
+        if (canGK) createBtn("Play as Goalkeeper", "btn-gk", gkFull, "GK");
+        if (canDEF) createBtn("Play as Defender", "btn-def", defFull, "DEF");
+        if (canFWD) createBtn("Play as Forward", "btn-fwd", fwdFull, "FWD");
+        createBtn("Add to Bench", "btn-bench", benchFull, "Bench");
+
+        document.getElementById('roleModal').classList.remove('hidden');
+    }
+
+    function confirmAdd(role) {
+        const p = pendingPlayer;
+        if (!p) return;
+
+        if (role === "GK") mySquad.GK = p;
+        else if (role === "DEF") mySquad.DEF.push(p);
+        else if (role === "FWD") mySquad.FWD.push(p);
+        else if (role === "Bench") mySquad.Bench.push(p);
+        
+        document.getElementById('roleModal').classList.add('hidden');
+        commitTransaction();
+    }
+
+    function commitTransaction() {
+        recalculateBudget();
+        save();
+        updateUI();
+    }
+
+    function removeP(type, idx) {
+        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! (11:00 PM Deadline)"); return; }
+        if (isAdmin) return; // Admin only views squad logic here
+
+        let p;
+        if (type === 'GK') { p = mySquad.GK; mySquad.GK = null; }
+        else if (type === 'DEF') { p = mySquad.DEF[idx]; mySquad.DEF.splice(idx, 1); }
+        else if (type === 'FWD') { p = mySquad.FWD[idx]; mySquad.FWD.splice(idx, 1); }
+        else { p = mySquad.Bench[idx]; mySquad.Bench.splice(idx, 1); }
+
+        if (p.name === captainName) captainName = null;
+        
+        recalculateBudget();
+        save();
+        updateUI();
+    }
+
+    function setCaptain(name) {
+        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! (11:00 PM Deadline)"); return; }
+        if (isAdmin) return;
+        captainName = name;
+        save();
+        updateUI();
+    }
+
+    function updateUI() {
+        if (!currentUser || isAdmin) return;
+
+        const marketOpen = isMarketOpen();
+        const msgBox = document.getElementById('marketStatusBox');
+        if(!marketOpen) {
+            msgBox.style.display = 'block';
+            msgBox.className = 'market-closed-msg';
+            msgBox.innerText = "Market Closed (Deadline Passed)";
+        } else {
+            msgBox.style.display = 'none';
+        }
+
+        document.getElementById('budgetDisplay').innerText = budget;
+        
+        const createCard = (p, type, idx) => {
+            if(!p) return `<div class="empty-slot">${type}</div>`;
+            const isCap = (p.name === captainName);
+            
+            // Hide buttons if market closed
+            const buttonsHtml = marketOpen ? `
+                <button class="captain-btn ${isCap ? 'captain-active' : ''}" onclick="setCaptain('${p.name}')">C</button>
+                <button class="remove-btn" onclick="removeP('${type}', ${idx})">✕</button>
+            ` : (isCap ? `<div style="position:absolute; top:-5px; left:-5px; background:var(--accent); color:black; font-weight:bold; font-size:10px; padding:2px 5px; border-radius:4px;">C</div>` : '');
+
+            return `
+                <div class="player-card-pitch" style="${isCap ? 'border:2px solid var(--accent);' : ''}">
+                    ${buttonsHtml}
+                    <strong>${p.name.split(' ')[0]}</strong><br>
+                    <small>${p.price}</small>
+                </div>
+            `;
+        };
+
+        document.getElementById('row-gk').innerHTML = createCard(mySquad.GK, 'GK', 0);
+        document.getElementById('row-def').innerHTML = 
+            createCard(mySquad.DEF[0], 'DEF', 0) + createCard(mySquad.DEF[1], 'DEF', 1);
+        document.getElementById('row-fwd').innerHTML = 
+            createCard(mySquad.FWD[0], 'FWD', 0) + createCard(mySquad.FWD[1], 'FWD', 1);
+
+        document.getElementById('bench-row').innerHTML = 
+            createCard(mySquad.Bench[0], 'Bench', 0) + createCard(mySquad.Bench[1], 'Bench', 1);
+
+        const count = (mySquad.GK ? 1 : 0) + mySquad.DEF.length + mySquad.FWD.length + mySquad.Bench.length;
+        document.getElementById('playersCount').innerText = `${count}/7 Players Selected`;
+
+        const isValid = (count === 7);
+        const msg = document.getElementById('statusMsg');
+        const confirmBtn = document.getElementById('confirmBtn');
+
+        if(isValid) {
+            msg.innerText = "Squad Valid! Good Luck.";
+            msg.className = "validation-msg valid";
+            // Disable confirm if market closed? Usually safe to leave visible but maybe disable save action.
+            // But since "Confirm" button is manually triggering save, let's block it in the function.
+            confirmBtn.style.display = "block";
+        } else {
+            msg.innerText = `Team Incomplete (${7-count} needed)`;
+            msg.className = "validation-msg";
+            confirmBtn.style.display = "none";
+        }
+
+        renderPlayers();
+    }
+
+    function confirmSquad() {
+        if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! Cannot save changes."); return; }
+        calculateTotalPoints();
+        save();
+        alert("Team Saved! Check Leaderboard for your score.");
+        renderLeaderboard();
+        openTab('leaderboard');
+    }
+
+    function renderStats() {
+        const tbody = document.getElementById('statsBody');
+        tbody.innerHTML = players.map(p => {
+            const s = playerStats[p.name];
+            return `
+            <tr>
+                <td class="stats-name-col">${p.name}</td>
+                <td><small>${p.pos[0].substr(0,3)}</small></td>
+                <td style="background:#e8f5e9; font-weight:bold;">${s.starting}</td>
+                <td>${s.goals}</td>
+                <td>${s.assists}</td>
+                <td>${s.saves}</td>
+                <td>${s.mom}</td>
+                <td>${s.yellow}</td>
+                <td>${s.red}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderLeaderboard() {
+
+    // Get server squads
+    fetch("/leaderboard")
+    .then(r=>r.json())
+    .then(serverData=>{
+
+        leaderboard = [];
+
+        serverData.forEach(u=>{
+            leaderboard.push({
+                id: u.sc,
+                name: u.sc,
+                pts: 0
+            });
+        });
+
+        calculateTotalPoints();   // your existing function
+        localStorage.setItem('fLeader', JSON.stringify(leaderboard));
+
+        const body = document.getElementById('leaderboardBody');
+        body.innerHTML = leaderboard
+            .sort((a,b)=>b.pts-a.pts)
+            .map((u,i)=>`<tr><td>${i+1}</td><td>${u.name}</td><td>${u.pts}</td></tr>`)
+            .join('');
+    });
+}
+
+
+</script>
+</body>
+</html>
