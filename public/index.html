@@ -385,8 +385,8 @@
 
 <script>
     // --- TIMELOCK CONFIG ---
-    // FIXED: Extended deadline to March 1, 2026 so you can test
-    const DEADLINE = new Date("2026-02-16T12:00:00");
+    // Extended deadline to March 1, 2026 for testing
+    const DEADLINE = new Date("2026-03-01T23:00:00");
 
     function isMarketOpen() {
         return new Date() < DEADLINE;
@@ -409,12 +409,12 @@
 
     // --- DATA ---
     const players = [
-        { name: "Amal", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Aromal", price: 300, pos: ["Midfielder"] },
-        { name: "Jerin", price: 300, pos: ["Defender", "Midfielder"] }, { name: "Kiran", price: 300, pos: ["Forward", "Defender", "Midfielder"] },
-        { name: "Deepak", price: 300, pos: ["Forward", "Defender", "Midfielder"] }, { name: "Athil", price: 300, pos: ["Defender", "Midfielder"] },
-        { name: "Jyothish", price: 300, pos: ["Defender", "Midfielder"] }, { name: "Hari", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Amal", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Aromal", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Jerin", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Kiran", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Deepak", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Athil", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Jyothish", price: 300, pos: ["Defender", "Midfielder", "Forward"] }, { name: "Hari", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
         { name: "Aryan Ahalawat", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
-        { name: "Francis Babu", price: 300, pos: ["Defender", "Midfielder", "Forward"] },
+        { name: "Francis Babu", price: 300, pos: ["Defender", "Midfielder"] },
         { name: "Kushal Aradhya H V", price: 300, pos: ["Midfielder", "Forward"] },
         { name: "Mecwin Levy TS", price: 300, pos: ["Defender", "Midfielder"] },
         { name: "Nishkalan", price: 300, pos: ["Goalkeeper", "Defender", "Midfielder", "Forward"] },
@@ -634,7 +634,7 @@
         document.querySelector('.sidebar').style.opacity = "1";
         document.querySelector('.sidebar').style.pointerEvents = "auto";
         
-        // FIXED: Now we ensure stats are rendered when you login
+        // Ensure stats are rendered when you login
         renderStats();
 
         if (isAdmin) {
@@ -940,7 +940,7 @@
 
     function confirmSquad() {
         if (!isMarketOpen() && !isAdmin) { alert("Market is Closed! Cannot save changes."); return; }
-        calculateTotalPoints(); // FIXED: Function now exists
+        calculateTotalPoints();
         save();
         alert("Team Saved! Check Leaderboard for your score.");
         renderLeaderboard();
@@ -966,14 +966,14 @@
         }).join('');
     }
 
-    // --- FIXED: Added the missing function that caused crashes ---
+    // --- FIXED: Use user ID (SC Code) to fetch data, but display Name ---
     function calculateTotalPoints() {
         leaderboard.forEach(user => {
             let total = 0;
             
-            // Get user's squad
-            let userSquad = JSON.parse(localStorage.getItem(`fSquad_${user.name}`));
-            let userCap = localStorage.getItem(`fCaptain_${user.name}`);
+            // Note: We use user.id (SC Code) to fetch data because the name displayed might be different
+            let userSquad = JSON.parse(localStorage.getItem(`fSquad_${user.id}`));
+            let userCap = localStorage.getItem(`fCaptain_${user.id}`);
 
             if (userSquad) {
                 const getPlayerPoints = (pName) => {
@@ -1008,14 +1008,15 @@
         leaderboard.sort((a, b) => b.pts - a.pts);
     }
 
-    // --- FIXED: Robust leaderboard rendering ---
+    // --- FIXED: Render Full Name in Leaderboard ---
     function renderLeaderboard() {
         fetch("/leaderboard")
         .then(r => r.json())
         .then(serverData => {
             leaderboard = [];
             serverData.forEach(u => {
-                leaderboard.push({ id: u.sc, name: u.sc, pts: 0 });
+                // Store ID for logic, Name for display
+                leaderboard.push({ id: u.sc, name: u.name, pts: 0 });
             });
             finishLeaderboardRender();
         })
@@ -1023,7 +1024,9 @@
             console.warn("Using local cache/fallback for leaderboard");
             // Fallback for visual testing if server fails
             if(leaderboard.length === 0 && currentUser) {
-                leaderboard.push({ id: currentUser, name: currentUser, pts: 0 });
+                // Use currentFullName if available, else SC Code
+                const displayName = currentFullName || currentUser;
+                leaderboard.push({ id: currentUser, name: displayName, pts: 0 });
             }
             finishLeaderboardRender();
         });
